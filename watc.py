@@ -14,6 +14,7 @@ class WATC:
         self.make_edis()
         self.tree = range(n)
         self.make_candidates() #doubly linked list
+        self.names = dendropy.TaxonNamespace([str(i) for i in range(self.n)])
         return
 
     def get_tree(self):
@@ -26,13 +27,37 @@ class WATC:
     def find_some_tree(self):
         m = len(self.edis)
         while m >= 4:
+            #brute force the base case
             if m == 4:
-                pass #brute force the base case
+                x = self.edis.keys()[0]
+                
+                if len(self.graph.neighbors(x)) != 1:
+                    return "Fail"
+                y = self.graph.neighbors(x)[0]
+                
+                if len(self.graph.neighbors(y)) != 1:
+                    return "Fail"
+                
+                self.graph.remove_nodes_from([x, y])
+                z = self.edis.keys()[0]
+                
+                if len(self.graph.neighbors(z)) != 1:
+                    return "Fail"
+                
+                w = self.graph.neighbors(z)[0]
+                t1 = merge_edi_trees(x, y)
+                t2 = merge_edi_trees(z, w)
+                T = merge_edi_trees(t1, t2)
+                return T
+            
             else:
-                i, j = self.find_siblings()
-                self.update_structures(i, j)
-                pass #merge two edi-trees
-        pass
+                sibs = self.find_siblings()
+                if sibs:
+                    i, j = sibs
+                    self.update_structures(i, j)
+                    print("There are " + str(len(self.edis)) + " trees left.")
+                else:
+                    return "Fail"
     
     def verify_tree(self, T):
         #https://www.geeksforgeeks.org/lca-for-general-or-n-ary-trees-sparse-matrix-dp-approach-onlogn-ologn/
@@ -43,7 +68,7 @@ class WATC:
         self.graph = nx.Multigraph()
         self.graph.add_nodes_from(range(0, self.n))
         self.red = [[0 for j in range(self.n)] for i in range(self.n)]
-        self.green = [[( (None, structs.TailedDoublyLinkedList()) for j in range(self.n)] for i in range(self.n)]
+        self.green = [[(None, structs.TailedDoublyLinkedList()) for j in range(self.n)] for i in range(self.n)]
         for q in self.quartets:
             #(i, j, k, l) = q
             gedges = self.green_edges(q)
@@ -65,22 +90,20 @@ class WATC:
         return
 
     def make_edis(self):
-        self.edis = dendropy.TreeList()
-        names = dendropy.TaxonNamespace([str(i) for i in range(self.n)])
+        self.edis = {}
+        
         # dendropy requires taxa to be strings :(
         for i in range(self.n):
-            leaf = dendropy.Tree(taxon_namespace=names)
+            leaf = dendropy.Tree(taxon_namespace=self.names)
             leaf.taxon = names.get_taxon(str(i))
             # assert tree.taxon_namespace is not trees.taxon_namespace
-            self.edis.append(leaf)
+            self.edis[i] = leaf
         return
 
-    # indexing may be off
-    # (done)
     def make_candidates(self):
         self.candidates = structs.TailedDoublyLinkedList()
-        for i from 1 to n:
-            for j from i to n:
+        for i in range(self.n):
+            for j in range(self.n):
                 (ptr1,li1) = self.green_edges[i][j]
                 # check if edge is a candidate
                 if b.isntEmpty() and self.red_edges == 0: 
@@ -106,7 +129,7 @@ class WATC:
             if are_siblings(i, j):
                 return (i, j)
             else:
-                # "disconnect" ptrs in green_edges
+                # disconnect ptrs in green_edges
                 (ptr1, li1) = self.green_edges[i][j]
                 (ptr2, li2) = self.green_edges[j][i]
                 self.green_edges[i][j] = (None, li1)
@@ -115,7 +138,7 @@ class WATC:
                 temp = curr 
                 curr = curr.next
                 self.candidates.delete(temp)
-        return "No sibling was found; sadness"
+        return None
 
     # if a != null where (a,b) \in green_edges, check if i and j are editrees
     # done
@@ -173,13 +196,42 @@ class WATC:
             q = curr.data
             redges = self.red_edges(q)
 
-            for((x,y) in redges):
+            for (x,y) in redges:
                 self.red_edges[x][y] -= 1
                 self.red_edges[y][x] -= 1
-
-        # then we merge two edisubtrees into one (do this in different func?)
+        self.merge_edi_trees(i, j)
+        self.update_tree(i, j)
+        self.update_colors(i, j)
         pass
 
+    def merge_edi_trees(self, i, j):
+        # the choice of representative here is arbitrary
+        if i==j:
+            raise ValueError('cannot merge with self')
+        parent = dendropy.Tree(taxon_namespace=self.names)
+        parent.taxon = self.names.get_taxon(str(i))
+        parent.add_child(self.edis[i])
+        parent.add_child(self.edis[j])
+        self.edis[i] = parent
+        del self.edis[j]
+        return parent
+
+    def update_tree(self, i, j):
+        for k in range(self.n):
+            if self.tree[k] == j:
+                self.tree[k] = i
+        return
+
+    # todo: need to also update candidates list...
+    def update_colors(self, i, j):
+        for k in range(self.n):
+            if k != i:
+                self.red[i][k] = self.red[i][k] + self.red[j][k]
+                self.red[k][i] = self.red[k][i] + self.red[k][j]
+                self.green[i][k][1] = self.green[i][k][1].union(self.green[i][j][1])
+                self.green[k][i][1] = self.green[k][i][1].union(self.green[j][i][1])
+        return
+                
     def green_edges(self, q):
         (i, j, k, l) = q
         return [(i, j), (k, l)]
