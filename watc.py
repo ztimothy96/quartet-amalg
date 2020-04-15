@@ -296,5 +296,19 @@ class WATC:
         return all(any(in_quartets(q) for q in self.same_splits(rep)) for rep in rep_quartets)
     
     def are_quartets_in_tree(self, T):
+        for q in self.quartets:
+            i, j, k, l = q
+            lj, lk, ll = [self.lca(i, x) for x in [j, k, l]]
+            if lj == lk:
+                split = (i, l, j, k)
+            elif lj == ll:
+                split = (i, k, j, l)
+            else:
+                split = (i, j, k, l)
+            if split not in self.same_splits(q):
+                return False
+        return True
+
+    def lca(self, i, j):
         #https://www.geeksforgeeks.org/lca-for-general-or-n-ary-trees-sparse-matrix-dp-approach-onlogn-ologn/
         pass
