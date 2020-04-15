@@ -1,15 +1,14 @@
 import dendropy
 import networkx as nx
 import structs
+from bisect import bisect_right
 
 # convert all taxa to integers 0 through n-1
-# n = number of taxa
-# code skeleton so far
 
 class WATC:
     def __init__(self, n, quartets):
         self.n = n
-        self.quartets = quartets
+        self.quartets = sorted(quartets)
         self.make_colorful_things()
         self.make_edis()
         self.tree = range(n)
@@ -60,10 +59,12 @@ class WATC:
                     return "Fail"
     
     def verify_tree(self, T):
-        #https://www.geeksforgeeks.org/lca-for-general-or-n-ary-trees-sparse-matrix-dp-approach-onlogn-ologn/
-        pass
+        rep_quartets = self.get_rep_quartets(T)
+        return self.are_reps_in_quartets(rep_quartets) and self.are_quartets_in_tree(T)           
 
-    #constructor functions
+    '''
+    CONSTRUCTORS
+    '''
     def make_colorful_things(self):
         self.graph = nx.Multigraph()
         self.graph.add_nodes_from(range(0, self.n))
@@ -108,17 +109,26 @@ class WATC:
                 # check if edge is a candidate
                 if b.isntEmpty() and self.red_edges == 0: 
                     self.candidates.append((i,j))
-                    (ptr2, li2) = self.green_edges[j][i]
+                    (ptr2, li2) = self.green[j][i]
                     # have each green entry `point' to this newly added thing
                     # but is this a pointer ? will it change if i change the tail
                     # python confuses me
-                    self.green_edges[i][j] = (self.candidates.tail, li1)
-                    self.green_edges[j][i] = (self.candidates.tail, li2)
+                    self.green[i][j] = (self.candidates.tail, li1)
+                    self.green[j][i] = (self.candidates.tail, li2)
         return 
 
+    def green_edges(self, q):
+        (i, j, k, l) = q
+        return [(i, j), (k, l)]
 
+    def red_edges(self, q):
+        (i, j, k, l) = q
+        return [(i, k), (i,l), (j, k), (j, l)]
+    
+    '''
+    FIND A TREE
+    '''
 
-    #actually finding a tree
     # dont know if we actually have to check green/red stuff
     # since the only way we add something to candidates is if we pass the check
     # (done)
@@ -126,7 +136,7 @@ class WATC:
         curr = self.candidates.head
         while(curr is not None):
             (i, j) = curr.data
-            if are_siblings(i, j):
+            if self.are_siblings(i, j):
                 return (i, j)
             else:
                 # disconnect ptrs in green_edges
@@ -143,7 +153,7 @@ class WATC:
     # if a != null where (a,b) \in green_edges, check if i and j are editrees
     # done
     def are_siblings(self, i, j):
-        (a,b) = self.green_edges[i][j]
+        (a,b) = self.green[i][j]
         if a != None: 
             if tree[i] != i or tree[j] != j:
                 return False
@@ -172,8 +182,8 @@ class WATC:
     # to deal with ghosts (?)
     # done
     def delete_green_edge(self, a, b, q):
-        (ptr1, li1) = self.green_edges[a][b]
-        (ptr2, li2) = self.green_edges[b][a]
+        (ptr1, li1) = self.green[a][b]
+        (ptr2, li2) = self.green[b][a]
 
         li1.delete_specific(q)
         li2.delete_specific(q)
@@ -188,8 +198,7 @@ class WATC:
 
     
     def update_structures(self, i, j):
-        # first process every green edge e in green_ij and green_ji 
-        # by deleting the four red edges associated to e
+        # first delete the red edges associated to e = (i, j)
         (ptr1, li1) = self.green_edges[i][j]
         curr = li1.head
         while (curr is not None):
@@ -199,15 +208,18 @@ class WATC:
             for (x,y) in redges:
                 self.red_edges[x][y] -= 1
                 self.red_edges[y][x] -= 1
+                
+        i, j = sorted([i, j])
         self.merge_edi_trees(i, j)
         self.update_tree(i, j)
         self.update_colors(i, j)
         pass
-
+    
+    # merges two edi-trees at a root; labeled by lesser index
     def merge_edi_trees(self, i, j):
-        # the choice of representative here is arbitrary
         if i==j:
             raise ValueError('cannot merge with self')
+        i, j = sorted([i, j])
         parent = dendropy.Tree(taxon_namespace=self.names)
         parent.taxon = self.names.get_taxon(str(i))
         parent.add_child(self.edis[i])
@@ -232,13 +244,57 @@ class WATC:
                 self.green[k][i][1] = self.green[k][i][1].union(self.green[j][i][1])
         return
                 
-    def green_edges(self, q):
-        (i, j, k, l) = q
-        return [(i, j), (k, l)]
+    '''
+    VERIFY THE TREE
+    '''
+    # returns distance and taxon of minimal closest leaf
+    def get_rep(self, root):
+        if root.is_leaf():
+            return 0, int(root.taxon)
+        child_reps = sorted([self.get_rep(child) for child in root.child_node_iter()])
+        dist, name = child_reps[0]
+        return dist+1, name
 
-    def red_edges(self, q):
-        (i, j, k, l) = q
-        return [(i, k), (i,l), (j, k), (j, l)]
+    # returns the child of node which is not the given one
+    def get_other_child(self, node, child):
+        others = [other for other in node.child_node_iter() if other != child]
+        if len(others) != 1:
+            raise ValueError('wrong child, or not an internal node of a binary tree')
+        return others[0]
 
+    # returns the representative of the short quartets in the input tree
+    def get_rep_quartets(self, T):
+        reps = {}
+        rep_quartets = []
+        for node in T.preorder_node_iter():
+            reps[node] = self.get_rep(node)
+        for edge in T.preorder_internal_edge_iter():
+            head = edge.head_node
+            tail = edge.tail_node
+            i, j = [reps[child] for child in head.child_node_iter()]
+            if tail == tree.seed_node:
+                tail = self.get_other_child(tail, head)
+                k, l= [reps[child] for child in tail.child_node_iter()]
+            else:
+                k = reps[get_other_child(tail, head)]
+                parent = tail.parent_node
+                l = reps[self.get_other_child(parent, tail)]
+            rep_quartets.append((i, j, k, l))
+        return rep_quartets
 
-    #verification functions here... maybe implement the actual data structures first
+    # returns whether input quartet q is inside quartet list via binary search
+    def in_quartets(self, q):
+        i = bisect_right(self.quartets, q)
+        return i != len(self.quartets)+1 and self.quartets[i-1] == x
+
+    # returns list of quartets which induce same split as q
+    def same_splits(self, q):
+        i, j, k, l = q
+        return [(i, j, k, l), (j, i, k, l), (i, j, l, k), (j, i, l, k)]
+        
+    def are_reps_in_quartets(self, rep_quartets):
+        return all(any(in_quartets(q) for q in self.same_splits(rep)) for rep in rep_quartets)
+    
+    def are_quartets_in_tree(self, T):
+        #https://www.geeksforgeeks.org/lca-for-general-or-n-ary-trees-sparse-matrix-dp-approach-onlogn-ologn/
+        pass
