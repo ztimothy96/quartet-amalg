@@ -107,3 +107,41 @@ class TailedDoublyLinkedList:
             return True
 
 # This code was modifed from a DoublyLinkedList class contributed by Nikhil Kumar Singh(nickzuck_007) 
+
+
+# a data structure for finding least common ancestor in O(log n) time
+class LCA:
+    def __init__(self, n, root):
+        self.height = {} # distance of node from root
+        self.first = {} # first index in DFS walk seeing a given node
+        self.traversal = [] # the DFS walk through the tree
+        self.visited = set()
+        self.dfs(root)
+        self.make_segment_tree()
+
+    def dfs(self, node, height=0):
+        visited.add(node)
+        self.height[node] = height
+        self.first[node] = len(traversal)
+        for child in node.child_node_iter():
+            if child not in visited:
+                self.dfs(child, height+1)
+                self.traversal.append(child)
+        return
+
+    def make_segment_tree(self):
+        pass
+
+    # turns range minimum query
+    def rmq(self):
+        pass
+
+    # find lca of nodes i,j
+    def query(self, i, j):
+        left = self.first[i]
+        right = self.first[j]
+        if left > right:
+            left, right = right, left
+        return self.rmq()
+        
+        
