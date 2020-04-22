@@ -4,7 +4,11 @@ import structs
 from bisect import bisect_right
 
 # convert all taxa to integers 0 through n-1
-
+'''
+==========================================================================================
+                                        WATC Class
+==========================================================================================
+'''
 class WATC:
     def __init__(self, n, quartets):
         self.n = n
@@ -16,13 +20,21 @@ class WATC:
         self.names = dendropy.TaxonNamespace([str(i) for i in range(self.n)])
         return
 
+
+    # wrapper function to run WATC algorithm
     def get_tree(self):
         T = self.find_some_tree()
         if self.verify_tree(T):
             return T
         else:
             return "Fail"
-
+'''
+------------------------------------------------------------------------------------------
+                                      Wrapper functions
+                            (functions for Stage 1 and Stage 2)
+------------------------------------------------------------------------------------------
+'''
+    # Stage 1 wrapper
     def find_some_tree(self):
         m = len(self.edis)
         while m >= 4:
@@ -54,17 +66,23 @@ class WATC:
                 if sibs:
                     i, j = sibs
                     self.update_structures(i, j)
-                    print("There are " + str(len(self.edis)) + " trees left.")
+                    # i feel like we should update m in order for this while loop to eventually end..
+                    m = len(self.edis)
+                    print("There are " + str(m) + " trees left.")
                 else:
                     return "Fail"
     
+    # Stage 2 Wrapper
     def verify_tree(self, T):
         rep_quartets = self.get_rep_quartets(T)
         return self.are_reps_in_quartets(rep_quartets) and self.are_quartets_in_tree(T)           
 
-    '''
-    CONSTRUCTORS
-    '''
+'''
+------------------------------------------------------------------------------------------
+                                      Constructors
+                            (functions to initialize all data structures)
+------------------------------------------------------------------------------------------
+'''
     def make_colorful_things(self):
         self.graph = nx.Multigraph()
         self.graph.add_nodes_from(range(0, self.n))
@@ -125,9 +143,12 @@ class WATC:
         (i, j, k, l) = q
         return [(i, k), (i,l), (j, k), (j, l)]
     
-    '''
-    FIND A TREE
-    '''
+'''
+------------------------------------------------------------------------------------------
+                                      Stage 1 Helpers
+                            (functions to help find a tree)
+------------------------------------------------------------------------------------------
+'''
 
     # dont know if we actually have to check green/red stuff
     # since the only way we add something to candidates is if we pass the check
@@ -140,8 +161,8 @@ class WATC:
                 return (i, j)
             else:
                 # disconnect ptrs in green_edges
-                (ptr1, li1) = self.green_edges[i][j]
-                (ptr2, li2) = self.green_edges[j][i]
+                li1 = self.green_edges[i][j][1]
+                li2 = self.green_edges[j][i][1]
                 self.green_edges[i][j] = (None, li1)
                 self.green_edges[j][i] = (None, li2)
 
@@ -163,7 +184,7 @@ class WATC:
 
     # note sure what this is meant to do; see delete_green_edge 
     def has_green_edge(self, i, j):
-        tddl = self.green[i][j]
+        (a,tddl) = self.green[i][j]
         node = tddl.head
         while node != None:
             q = node.data
@@ -228,6 +249,13 @@ class WATC:
         del self.edis[j]
         return parent
 
+    '''
+     **** things we may need to debug (not clear yet) ****
+     - for update_tree & update_colors, we go through all k != i, 
+       but paper says k should be every other edi-tree (maybe it doesnt
+       matter, but maybe its more efficient to iterate through the trees array)
+    '''
+
     def update_tree(self, i, j):
         for k in range(self.n):
             if self.tree[k] == j:
@@ -238,15 +266,43 @@ class WATC:
     def update_colors(self, i, j):
         for k in range(self.n):
             if k != i:
+                # update red
+                redBefore = self.red[i][k]
                 self.red[i][k] = self.red[i][k] + self.red[j][k]
                 self.red[k][i] = self.red[k][i] + self.red[k][j]
+
+                # deleting candidates 
+                if redBefore == 0 and self.red[i][k] > 0: 
+                    delCand = self.green[i][k][0]
+                    self.candidates.delete(delCand)
+                    self.green[i][k][0] = None
+                    self.green[k][i][0] = None
+                
+                # update green
+                greenBefore = self.green[i][k][1].length
                 self.green[i][k][1] = self.green[i][k][1].union(self.green[i][j][1])
                 self.green[k][i][1] = self.green[k][i][1].union(self.green[j][i][1])
+                
+                # inserting candidates 
+                if greenBefore == 0 and self.green[i][k][1].length > 0:
+                    self.candidates.append((i,k))
+                    self.green[i][k][0] = self.candidates.tail
+                    self.green[k][i][0] = self.candidates.tail
+
+
+                # lets do this for safety
+                self.red[j][k] = 0
+                self.red[k][j] = 0
+                self.green[j][k] = (None, structs.TailedDoublyLinkedList())
+                self.green[k][j] = (None, structs.TailedDoublyLinkedList())
         return
                 
-    '''
-    VERIFY THE TREE
-    '''
+'''
+------------------------------------------------------------------------------------------
+                                      Stage 2 Helpers
+                            (functions to help verify the tree)
+------------------------------------------------------------------------------------------
+'''
     # returns distance and taxon of minimal closest leaf
     def get_rep(self, root):
         if root.is_leaf():
@@ -266,26 +322,36 @@ class WATC:
     def get_rep_quartets(self, T):
         reps = {}
         rep_quartets = []
+        # determine the representative element for each node
         for node in T.preorder_node_iter():
             reps[node] = self.get_rep(node)
+        
+        # constructs short quartet for each edge
         for edge in T.preorder_internal_edge_iter():
             head = edge.head_node
             tail = edge.tail_node
+            # get children(?) of head
             i, j = [reps[child] for child in head.child_node_iter()]
-            if tail == tree.seed_node:
+            # if tail has no parent, the other part of the quartet is 
+            # the reps of children of head's sibling
+            # o.w. get one of head's siblings and tail's siblings
+            if tail == T.seed_node:
                 tail = self.get_other_child(tail, head)
                 k, l= [reps[child] for child in tail.child_node_iter()]
             else:
-                k = reps[get_other_child(tail, head)]
+                k = reps[self.get_other_child(tail, head)]
                 parent = tail.parent_node
                 l = reps[self.get_other_child(parent, tail)]
             rep_quartets.append((i, j, k, l))
+        
         return rep_quartets
 
     # returns whether input quartet q is inside quartet list via binary search
     def in_quartets(self, q):
+        # confused as to whether this works..
         i = bisect_right(self.quartets, q)
-        return i != len(self.quartets)+1 and self.quartets[i-1] == x
+        # this used to say 'self.quartetes[i-1] == x' but idk what x is so i assume its supposed to be q
+        return i != len(self.quartets)+1 and self.quartets[i-1] == q
 
     # returns list of quartets which induce same split as q
     def same_splits(self, q):
@@ -296,19 +362,5 @@ class WATC:
         return all(any(in_quartets(q) for q in self.same_splits(rep)) for rep in rep_quartets)
     
     def are_quartets_in_tree(self, T):
-        for q in self.quartets:
-            i, j, k, l = q
-            lj, lk, ll = [self.lca(i, x) for x in [j, k, l]]
-            if lj == lk:
-                split = (i, l, j, k)
-            elif lj == ll:
-                split = (i, k, j, l)
-            else:
-                split = (i, j, k, l)
-            if split not in self.same_splits(q):
-                return False
-        return True
-
-    def lca(self, i, j):
         #https://www.geeksforgeeks.org/lca-for-general-or-n-ary-trees-sparse-matrix-dp-approach-onlogn-ologn/
         pass
