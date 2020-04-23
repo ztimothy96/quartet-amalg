@@ -74,15 +74,15 @@ def regenSeqIDDict(filePath):
     return seq_dict
 
 # input a quarts.txt and output list of quartets in the form ((a,b),(c,d))
-# have not tested
 def regenQuarts(filePath):
     quarts = []
     with open(filePath) as f:
         for line in f:
-            line.replace("(","")
-            line.replace(")","")
+            line = line.replace("(","")
+            line = line.replace(")","")
             temp = line.split(",")
-            quarts.append(((temp[0],temp[1]),(temp[2],temp[3])))
+            a, b, c, d = [int(i) for i in temp]
+            quarts.append(((a, b), (c, d)))
         
     return quarts
 
@@ -181,7 +181,7 @@ def fourPointMethod(matrix):
 ===============================================================================
 '''
 
-num_sequences = 0
+num_sequences = 10
 readFrom = "datasets/1000L1/1000L1/R0/rose.aln.true.fasta"
 outPath = "quartet-files/" + str(num_sequences) + "-from-1000L1-R0/"
 
@@ -196,7 +196,7 @@ writeDistToFile(distance_matrix, outPath + "dist.txt")
 quarts = fourPointMethod(distance_matrix)
 writeQuartsToFile(quarts,outPath + "quarts.txt")
 
- 
+
     
 
 
