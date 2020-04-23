@@ -4,6 +4,7 @@ import structs
 from bisect import bisect_right
 
 # convert all taxa to integers 0 through n-1
+# quartets represented in Newick notation ((a, b), (c, d))
 '''
 ==========================================================================================
                                         WATC Class
@@ -12,12 +13,12 @@ from bisect import bisect_right
 class WATC:
     def __init__(self, n, quartets):
         self.n = n
+        self.names = dendropy.TaxonNamespace([str(i) for i in range(self.n)])
         self.quartets = sorted(quartets)
         self.make_colorful_things()
         self.make_edis()
         self.tree = range(n)
         self.make_candidates() #doubly linked list
-        self.names = dendropy.TaxonNamespace([str(i) for i in range(self.n)])
         return
 
 
@@ -26,14 +27,13 @@ class WATC:
         T = self.find_some_tree()
         if self.verify_tree(T):
             return T
-        else:
-            return "Fail"
-'''
-------------------------------------------------------------------------------------------
-                                      Wrapper functions
-                            (functions for Stage 1 and Stage 2)
-------------------------------------------------------------------------------------------
-'''
+        return "Fail"
+    '''
+    ------------------------------------------------------------------------------------------
+                                          Wrapper functions
+                                (functions for Stage 1 and Stage 2)
+    ------------------------------------------------------------------------------------------
+    '''
     # Stage 1 wrapper
     def find_some_tree(self):
         m = len(self.edis)
@@ -43,16 +43,19 @@ class WATC:
                 x = self.edis.keys()[0]
                 
                 if len(self.graph.neighbors(x)) != 1:
+                    print("Fail: bad base case")
                     return "Fail"
                 y = self.graph.neighbors(x)[0]
                 
                 if len(self.graph.neighbors(y)) != 1:
+                    print("Fail: bad base case")
                     return "Fail"
                 
                 self.graph.remove_nodes_from([x, y])
                 z = self.edis.keys()[0]
                 
                 if len(self.graph.neighbors(z)) != 1:
+                    print("Fail: bad base case")
                     return "Fail"
                 
                 w = self.graph.neighbors(z)[0]
@@ -66,30 +69,31 @@ class WATC:
                 if sibs:
                     i, j = sibs
                     self.update_structures(i, j)
-                    # i feel like we should update m in order for this while loop to eventually end..
                     m = len(self.edis)
-                    print("There are " + str(m) + " trees left.")
+                    print("There are " + str(m) + " edi-trees left.")
                 else:
+                    print("Fail: no more candidates")
                     return "Fail"
+                
+        return "Fail"
     
     # Stage 2 Wrapper
     def verify_tree(self, T):
         rep_quartets = self.get_rep_quartets(T)
         return self.are_reps_in_quartets(rep_quartets) and self.are_quartets_in_tree(T)           
 
-'''
-------------------------------------------------------------------------------------------
-                                      Constructors
-                            (functions to initialize all data structures)
-------------------------------------------------------------------------------------------
-'''
+    '''
+    ------------------------------------------------------------------------------------------
+                                          Constructors
+                                (functions to initialize all data structures)
+    ------------------------------------------------------------------------------------------
+    '''
     def make_colorful_things(self):
-        self.graph = nx.Multigraph()
+        self.graph = nx.MultiGraph()
         self.graph.add_nodes_from(range(0, self.n))
         self.red = [[0 for j in range(self.n)] for i in range(self.n)]
         self.green = [[(None, structs.TailedDoublyLinkedList()) for j in range(self.n)] for i in range(self.n)]
         for q in self.quartets:
-            #(i, j, k, l) = q
             gedges = self.green_edges(q)
             redges = self.green_edges(q)
             self.graph.add_edges_from(gedges, color='green', top=q) #maybe redundant
@@ -114,7 +118,8 @@ class WATC:
         # dendropy requires taxa to be strings :(
         for i in range(self.n):
             leaf = dendropy.Tree(taxon_namespace=self.names)
-            leaf.taxon = names.get_taxon(str(i))
+            leaf.taxon = self.names.get_taxon(str(i))
+            leaf.label = str(i)
             # assert tree.taxon_namespace is not trees.taxon_namespace
             self.edis[i] = leaf
         return
@@ -123,36 +128,33 @@ class WATC:
         self.candidates = structs.TailedDoublyLinkedList()
         for i in range(self.n):
             for j in range(self.n):
-                (ptr1,li1) = self.green_edges[i][j]
+                (ptr1,li1) = self.green[i][j]
                 # check if edge is a candidate
-                if b.isntEmpty() and self.red_edges == 0: 
+                if not li1.isEmpty() and self.red[i][j] == 0:
+                    print("found a candidate")
                     self.candidates.append((i,j))
                     (ptr2, li2) = self.green[j][i]
-                    # have each green entry `point' to this newly added thing
-                    # but is this a pointer ? will it change if i change the tail
-                    # python confuses me
                     self.green[i][j] = (self.candidates.tail, li1)
                     self.green[j][i] = (self.candidates.tail, li2)
         return 
 
     def green_edges(self, q):
-        (i, j, k, l) = q
+        ((i, j), (k, l)) = q
         return [(i, j), (k, l)]
 
     def red_edges(self, q):
-        (i, j, k, l) = q
+        ((i, j), (k, l)) = q
         return [(i, k), (i,l), (j, k), (j, l)]
     
-'''
-------------------------------------------------------------------------------------------
-                                      Stage 1 Helpers
-                            (functions to help find a tree)
-------------------------------------------------------------------------------------------
-'''
+    '''
+    ------------------------------------------------------------------------------------------
+                                          Stage 1 Helpers
+                                (functions to help find a tree)
+    ------------------------------------------------------------------------------------------
+    '''
 
     # dont know if we actually have to check green/red stuff
     # since the only way we add something to candidates is if we pass the check
-    # (done)
     def find_siblings(self):
         curr = self.candidates.head
         while(curr is not None):
@@ -172,7 +174,6 @@ class WATC:
         return None
 
     # if a != null where (a,b) \in green_edges, check if i and j are editrees
-    # done
     def are_siblings(self, i, j):
         (a,b) = self.green[i][j]
         if a != None: 
@@ -297,12 +298,12 @@ class WATC:
                 self.green[k][j] = (None, structs.TailedDoublyLinkedList())
         return
                 
-'''
-------------------------------------------------------------------------------------------
-                                      Stage 2 Helpers
-                            (functions to help verify the tree)
-------------------------------------------------------------------------------------------
-'''
+    '''
+    ------------------------------------------------------------------------------------------
+                                          Stage 2 Helpers
+                                (functions to help verify the tree)
+    ------------------------------------------------------------------------------------------
+    '''
     # returns distance and taxon of minimal closest leaf
     def get_rep(self, root):
         if root.is_leaf():
@@ -342,7 +343,8 @@ class WATC:
                 k = reps[self.get_other_child(tail, head)]
                 parent = tail.parent_node
                 l = reps[self.get_other_child(parent, tail)]
-            rep_quartets.append((i, j, k, l))
+            top = ((i, j), (k, l))
+            rep_quartets.append(top)
         
         return rep_quartets
 
@@ -350,17 +352,31 @@ class WATC:
     def in_quartets(self, q):
         # confused as to whether this works..
         i = bisect_right(self.quartets, q)
-        # this used to say 'self.quartetes[i-1] == x' but idk what x is so i assume its supposed to be q
         return i != len(self.quartets)+1 and self.quartets[i-1] == q
 
     # returns list of quartets which induce same split as q
     def same_splits(self, q):
         i, j, k, l = q
-        return [(i, j, k, l), (j, i, k, l), (i, j, l, k), (j, i, l, k)]
-        
+        return [((i, j), (k, l)), ((j, i), (k, l)), ((i, j), (l, k)), ((j, i), (l, k))]
+
+    # returns whether computed representative quartets are contained in input quartets
     def are_reps_in_quartets(self, rep_quartets):
         return all(any(in_quartets(q) for q in self.same_splits(rep)) for rep in rep_quartets)
-    
+        
+    # returns whether the input quartets are induced by tree T
     def are_quartets_in_tree(self, T):
-        #https://www.geeksforgeeks.org/lca-for-general-or-n-ary-trees-sparse-matrix-dp-approach-onlogn-ologn/
-        pass
+        lca = structs.LCA(T.seed_node)
+        for q in self.quartets:
+            i, j, k, l = q
+            lj, lk, ll = lca.query(i, j), lca.query(i, k), lca.query(i, l)
+            if lj == lk:
+                top = ((i, l), (j, k))
+            elif lj == ll:
+                top = ((i, k), (j, l))
+            elif lk == ll:
+                top = ((i, j), (k, l))
+            else:
+                raise ValueError('invalid tree topology')
+            if top not in self.same_splits(self, q):
+                return False
+        return True
