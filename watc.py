@@ -1,5 +1,4 @@
 import dendropy
-import networkx as nx
 import structs
 from bisect import bisect_right
 
@@ -17,7 +16,7 @@ class WATC:
         self.quartets = sorted(quartets)
         self.make_colorful_things()
         self.make_edis()
-        self.tree = range(n)
+        self.tree = [i for i in range(self.n)]
         self.make_candidates() #doubly linked list
         return
 
@@ -38,39 +37,63 @@ class WATC:
     def find_some_tree(self):
         m = len(self.edis)
         while m >= 4:
+            
             #brute force the base case
             if m == 4:
-                x = self.edis.keys()[0]
+                print("Candidates:")
+                print(self.candidates)
+                print("Red:")
+                print(self.red)
+                print("Green:")
+                for j in range(self.n):
+                    for i in range(j):
+                        print("pair (" + str(i) + ", " + str(j) + "):")
+                        if self.green[i][j]:
+                            print(self.green[i][j].lst)
+                        else:
+                            print("None")
+                        
+                reps = list(self.edis.keys())
+                all_edges = [(i, j) for j in range(4) for i in range(j) if self.are_siblings(reps[i], reps[j])]
                 
-                if len(self.graph.neighbors(x)) != 1:
+                if all_edges == [(0, 1), (2, 3)]:
+                    x, y, z, w = reps[0], reps[1], reps[2], reps[3]
+                elif all_edges == [(0, 2), (1, 3)]:
+                    x, y, z, w = reps[0], reps[2], reps[1], reps[3]
+                elif all_edges == [(1, 2), (0, 3)]:
+                    x, y, z, w = reps[1], reps[2], reps[0], reps[3]
+                else:
                     print("Fail: bad base case")
                     return "Fail"
-                y = self.graph.neighbors(x)[0]
                 
-                if len(self.graph.neighbors(y)) != 1:
-                    print("Fail: bad base case")
-                    return "Fail"
-                
-                self.graph.remove_nodes_from([x, y])
-                z = self.edis.keys()[0]
-                
-                if len(self.graph.neighbors(z)) != 1:
-                    print("Fail: bad base case")
-                    return "Fail"
-                
-                w = self.graph.neighbors(z)[0]
-                t1 = merge_edi_trees(x, y)
-                t2 = merge_edi_trees(z, w)
-                T = merge_edi_trees(t1, t2)
+                t1 = self.merge_edi_trees(x, y)
+                t2 = self.merge_edi_trees(z, w)
+                T = dendropy.Tree(taxon_namespace=self.names)
+                T.seed_node.add_child(t1.seed_node)
+                T.seed_node.add_child(t2.seed_node)
                 return T
             
             else:
+                print("Candidates:")
+                print(self.candidates)
+                print("Red:")
+                print(self.red)
+                print("Green:")
+                for j in range(self.n):
+                    for i in range(j):
+                        print("pair (" + str(i) + ", " + str(j) + "):")
+                        if self.green[i][j]:
+                            print(self.green[i][j].lst)
+                        else:
+                            print("None")
+                            
                 sibs = self.find_siblings()
                 if sibs:
                     i, j = sibs
                     self.update_structures(i, j)
                     m = len(self.edis)
                     print("There are " + str(m) + " edi-trees left.")
+                    print("_______________________________________")
                 else:
                     print("Fail: no more candidates")
                     return "Fail"
@@ -89,15 +112,11 @@ class WATC:
     ------------------------------------------------------------------------------------------
     '''
     def make_colorful_things(self):
-        self.graph = nx.MultiGraph()
-        self.graph.add_nodes_from(range(0, self.n))
         self.red = [[0 for j in range(self.n)] for i in range(self.n)]
-        self.green = [[(None, structs.TailedDoublyLinkedList()) for j in range(self.n)] for i in range(self.n)]
+        self.green = [[structs.Green(None, structs.TailedDoublyLinkedList()) for j in range(self.n)] for i in range(self.n)]
         for q in self.quartets:
             gedges = self.green_edges(q)
-            redges = self.green_edges(q)
-            self.graph.add_edges_from(gedges, color='green', top=q) #maybe redundant
-            self.graph.add_edges_from(redges, color='red', top=None)
+            redges = self.red_edges(q)
             
             # update number of red egdes
             for (x,y) in redges:
@@ -106,36 +125,30 @@ class WATC:
 
             #update set of green edges
             for (u,v) in gedges:
-                (a,b) = self.green[u][v]
-                b.append(q)
-                (c,d) = self.green[v][u]
-                d.append(q)
+                self.green[u][v].lst.append(q)
+                self.green[v][u].lst.append(q)
         return
 
     def make_edis(self):
         self.edis = {}
-        
-        # dendropy requires taxa to be strings :(
         for i in range(self.n):
-            leaf = dendropy.Tree(taxon_namespace=self.names)
+            tree = dendropy.Tree(taxon_namespace=self.names)
+            leaf = tree.seed_node
             leaf.taxon = self.names.get_taxon(str(i))
             leaf.label = str(i)
-            # assert tree.taxon_namespace is not trees.taxon_namespace
-            self.edis[i] = leaf
+            self.edis[i] = tree
         return
 
     def make_candidates(self):
         self.candidates = structs.TailedDoublyLinkedList()
         for i in range(self.n):
-            for j in range(self.n):
-                (ptr1,li1) = self.green[i][j]
+            for j in range(i):
+                lst1 = self.green[i][j].lst
                 # check if edge is a candidate
-                if not li1.isEmpty() and self.red[i][j] == 0:
-                    print("found a candidate")
+                if not lst1.isEmpty():
                     self.candidates.append((i,j))
-                    (ptr2, li2) = self.green[j][i]
-                    self.green[i][j] = (self.candidates.tail, li1)
-                    self.green[j][i] = (self.candidates.tail, li2)
+                    self.green[i][j].ptr = self.candidates.tail
+                    self.green[j][i].ptr = self.candidates.tail
         return 
 
     def green_edges(self, q):
@@ -153,83 +166,61 @@ class WATC:
     ------------------------------------------------------------------------------------------
     '''
 
-    # dont know if we actually have to check green/red stuff
-    # since the only way we add something to candidates is if we pass the check
+    def are_siblings(self, i, j):
+        if self.red[i][j] != 0 or self.tree[i] != i or self.tree[j] != j:
+            return False
+        return self.has_green_edge(i, j)
+        
+    # returns a valid sibling pair from candidates to merge edi-trees
     def find_siblings(self):
         curr = self.candidates.head
         while(curr is not None):
             (i, j) = curr.data
-            if self.are_siblings(i, j):
+            if self.tree[i] != i or self.tree[j] != j:
+                curr = self.candidates.delete(curr)
+            elif self.red[i][j] != 0:
+                curr = curr.next
+            elif self.has_green_edge(i, j):
                 return (i, j)
             else:
-                # disconnect ptrs in green_edges
-                li1 = self.green_edges[i][j][1]
-                li2 = self.green_edges[j][i][1]
-                self.green_edges[i][j] = (None, li1)
-                self.green_edges[j][i] = (None, li2)
-
-                temp = curr 
-                curr = curr.next
-                self.candidates.delete(temp)
+                curr = self.candidates.delete(curr)
         return None
 
-    # if a != null where (a,b) \in green_edges, check if i and j are editrees
-    def are_siblings(self, i, j):
-        (a,b) = self.green[i][j]
-        if a != None: 
-            if tree[i] != i or tree[j] != j:
-                return False
-            else:
-                return True
-        return False
-
-    # note sure what this is meant to do; see delete_green_edge 
+    # returns whether there is a non-ghost green edge between i, j
+    # also deletes ghost edges in checking process
     def has_green_edge(self, i, j):
-        (a,tddl) = self.green[i][j]
-        node = tddl.head
+        lst = self.green[i][j].lst
+        node = lst.head
         while node != None:
             q = node.data
             if self.is_ghost_edge(i, j, q):
-                self.delete_green_edge(i,j,q)
-                # node = tddl.delete(node)
+                node = lst.delete(node)
             else:
                 return True
+            
+        # empty list; disconnect ptrs in green
+        self.green[i][j].ptr = None
+        self.green[j][i].ptr = None
         return False
 
-    # done
+    # returns whether (a, b) is a ghost edge for quartet q
     def is_ghost_edge(self, a, b, q):
-        [c, d] = [x for x in q if x != a and x != b]
+        ((x, y), (z, w)) = q
+        nodes = [x, y, z, w]
+        [c, d] = [t for t in nodes if t != a and t != b]
         return self.tree[c] == self.tree[d]
 
-    # to deal with ghosts (?)
-    # done
-    def delete_green_edge(self, a, b, q):
-        (ptr1, li1) = self.green[a][b]
-        (ptr2, li2) = self.green[b][a]
-
-        li1.delete_specific(q)
-        li2.delete_specific(q)
-
-        # ptr1 and ptr2 should always be pointing at the same guy in candidates
-        if ptr1 is not None:
-            if ptr1.data == (a,b) or ptr1.data == (b,a):
-                self.candidates.delete(ptr1)
-                self.candidates.delete(ptr2)
-
-        return
-
-    
     def update_structures(self, i, j):
-        # first delete the red edges associated to e = (i, j)
-        (ptr1, li1) = self.green_edges[i][j]
-        curr = li1.head
+        # first delete the red edges associated to edge (i, j)
+        curr = self.green[i][j].lst.head
         while (curr is not None):
-            q = curr.data
+            ((a, b), (c, d)) = curr.data
+            q = ((self.tree[a], self.tree[b]), (self.tree[c], self.tree[d]))
             redges = self.red_edges(q)
-
             for (x,y) in redges:
-                self.red_edges[x][y] -= 1
-                self.red_edges[y][x] -= 1
+                self.red[x][y] -= 1
+                self.red[y][x] -= 1
+            curr = curr.next
                 
         i, j = sorted([i, j])
         self.merge_edi_trees(i, j)
@@ -244,8 +235,8 @@ class WATC:
         i, j = sorted([i, j])
         parent = dendropy.Tree(taxon_namespace=self.names)
         parent.taxon = self.names.get_taxon(str(i))
-        parent.add_child(self.edis[i])
-        parent.add_child(self.edis[j])
+        parent.seed_node.add_child(self.edis[i].seed_node)
+        parent.seed_node.add_child(self.edis[j].seed_node)
         self.edis[i] = parent
         del self.edis[j]
         return parent
@@ -263,10 +254,12 @@ class WATC:
                 self.tree[k] = i
         return
 
-    # todo: need to also update candidates list...
     def update_colors(self, i, j):
-        for k in range(self.n):
-            if k != i:
+        print("i, j: " + str(i) + ", " + str(j))
+        
+        for k in list(self.edis.keys()):
+            print ("k: " + str(k))
+            if k != i and k != j:
                 # update red
                 redBefore = self.red[i][k]
                 self.red[i][k] = self.red[i][k] + self.red[j][k]
@@ -274,28 +267,34 @@ class WATC:
 
                 # deleting candidates 
                 if redBefore == 0 and self.red[i][k] > 0: 
-                    delCand = self.green[i][k][0]
+                    delCand = self.green[i][k].ptr
                     self.candidates.delete(delCand)
-                    self.green[i][k][0] = None
-                    self.green[k][i][0] = None
+                    self.green[i][k].ptr = None
+                    self.green[k][i].ptr = None
                 
                 # update green
-                greenBefore = self.green[i][k][1].length
-                self.green[i][k][1] = self.green[i][k][1].union(self.green[i][j][1])
-                self.green[k][i][1] = self.green[k][i][1].union(self.green[j][i][1])
+                greenBefore = self.green[i][k].lst.length
+                self.green[i][k].lst.union(self.green[j][k].lst)
+                self.green[k][i].lst.union(self.green[k][j].lst)
                 
                 # inserting candidates 
-                if greenBefore == 0 and self.green[i][k][1].length > 0:
+                if greenBefore == 0 and self.green[i][k].lst.length > 0:
                     self.candidates.append((i,k))
-                    self.green[i][k][0] = self.candidates.tail
-                    self.green[k][i][0] = self.candidates.tail
-
+                    self.green[i][k].ptr = self.candidates.tail
+                    self.green[k][i].ptr = self.candidates.tail
 
                 # lets do this for safety
-                self.red[j][k] = 0
-                self.red[k][j] = 0
-                self.green[j][k] = (None, structs.TailedDoublyLinkedList())
-                self.green[k][j] = (None, structs.TailedDoublyLinkedList())
+                self.red[j][k] = -float('inf')
+                self.red[k][j] = -float('inf')
+                self.green[j][k] = None
+                self.green[k][j] = None
+
+        # just for clarity
+        self.red[i][j] = -float('inf')
+        self.red[j][i] = -float('inf')
+        self.red[j][j] = -float('inf')
+        self.green[i][j] = None
+        self.green[j][i] = None
         return
                 
     '''
@@ -361,8 +360,8 @@ class WATC:
 
     # returns whether computed representative quartets are contained in input quartets
     def are_reps_in_quartets(self, rep_quartets):
-        return all(any(in_quartets(q) for q in self.same_splits(rep)) for rep in rep_quartets)
-        
+        return all(any(self.in_quartets(q) for q in self.same_splits(rep)) for rep in rep_quartets)
+
     # returns whether the input quartets are induced by tree T
     def are_quartets_in_tree(self, T):
         lca = structs.LCA(T.seed_node)
@@ -377,6 +376,6 @@ class WATC:
                 top = ((i, j), (k, l))
             else:
                 raise ValueError('invalid tree topology')
-            if top not in self.same_splits(self, q):
+            if top not in self.same_splits(q):
                 return False
         return True
