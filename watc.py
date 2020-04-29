@@ -12,7 +12,6 @@ from bisect import bisect_right
 class WATC:
     def __init__(self, n, quartets):
         self.n = n
-        self.names = dendropy.TaxonNamespace([str(i) for i in range(self.n)])
         self.quartets = sorted(quartets)
         self.make_colorful_things()
         self.make_edis()
@@ -55,7 +54,7 @@ class WATC:
                 
                 t1 = self.merge_edi_trees(x, y)
                 t2 = self.merge_edi_trees(z, w)
-                T = dendropy.Tree(taxon_namespace=self.names)
+                T = dendropy.Tree()
                 T.seed_node.add_child(t1.seed_node)
                 T.seed_node.add_child(t2.seed_node)
                 return T
@@ -105,9 +104,8 @@ class WATC:
     def make_edis(self):
         self.edis = {}
         for i in range(self.n):
-            tree = dendropy.Tree(taxon_namespace=self.names)
+            tree = dendropy.Tree()
             leaf = tree.seed_node
-            leaf.taxon = self.names.get_taxon(str(i))
             leaf.label = str(i)
             self.edis[i] = tree
         return
@@ -206,8 +204,8 @@ class WATC:
         if i==j:
             raise ValueError('cannot merge with self')
         i, j = sorted([i, j])
-        parent = dendropy.Tree(taxon_namespace=self.names)
-        parent.taxon = self.names.get_taxon(str(i))
+        parent = dendropy.Tree()
+        parent.label = i
         parent.seed_node.add_child(self.edis[i].seed_node)
         parent.seed_node.add_child(self.edis[j].seed_node)
         self.edis[i] = parent
@@ -273,13 +271,13 @@ class WATC:
                                 (functions to help verify the tree)
     ------------------------------------------------------------------------------------------
     '''
-    # returns distance and taxon of minimal closest leaf
+    # returns distance and label of minimal closest leaf
     def get_rep(self, root):
         if root.is_leaf():
             return 0, int(root.label)
         child_reps = sorted([self.get_rep(child) for child in root.child_node_iter()])
-        dist, name = child_reps[0]
-        return dist+1, name
+        dist, label = child_reps[0]
+        return dist+1, label
 
     # returns the child of node which is not the given one
     def get_other_child(self, node, child):
