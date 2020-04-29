@@ -294,19 +294,17 @@ class WATC:
         rep_quartets = []
         # gets representative for each node
         for node in T.preorder_node_iter():
-            reps[node] = self.get_rep(node)
+            reps[node] = self.get_rep(node)[1]
         
         # constructs short quartet for each edge
         for edge in T.preorder_internal_edge_iter(exclude_seed_edge=True):
             head = edge.head_node
             tail = edge.tail_node
-            print("head: " + str(edge.head_node))
-            print("tail: " + str(edge.tail_node))
-            # get children(?) of head
+            # get children of head
             i, j = [reps[child] for child in head.child_node_iter()]
-            # if tail has no parent, the other part of the quartet is 
+            # if tail has no parent, then the other part of the quartet is 
             # the reps of children of head's sibling
-            # o.w. get one of head's siblings and tail's siblings
+            # else, get one of head's siblings and tail's siblings
             if tail == T.seed_node:
                 tail = self.get_other_child(tail, head)
                 k, l= [reps[child] for child in tail.child_node_iter()]
@@ -327,8 +325,9 @@ class WATC:
 
     # returns list of quartets which induce same split as q
     def same_splits(self, q):
-        i, j, k, l = q
-        return [((i, j), (k, l)), ((j, i), (k, l)), ((i, j), (l, k)), ((j, i), (l, k))]
+        ((i, j), (k, l)) = q
+        return [((i, j), (k, l)), ((j, i), (k, l)), ((i, j), (l, k)), ((j, i),(l, k)),
+                ((k, l), (i, j)), ((k, l), (j, i)), ((l, k), (i, j)), ((l, k), (j, i))]
 
     # returns whether computed representative quartets are contained in input quartets
     def are_reps_in_quartets(self, rep_quartets):
