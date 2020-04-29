@@ -1,0 +1,72 @@
+********************************************************************************
+INDELible V1.03 by Will Fletcher : Simulation began at: Fri Apr 24 17:22:01 2020
+********************************************************************************
+
+  * Block 1 was completed in 0.001829 seconds.
+
+********************************************************************************
+
+  * Simulation completed. Whole batch took: 0.00368 seconds.
+
+INDELible V1.03 Simulations completed at: Fri Apr 24 17:22:01 2020
+
+********************************************************************************
+
+
+ Original Control File 
+
+-----------------------
+
+
+/////////////////////////////////////////////////////////////////////////////////////
+//                                                                                 //
+//  INDELible V1.03 control file - basic.txt                                       //
+//                                                                                 //
+//      A basic introduction to the structure of the INDELible control file.       //
+//                                                                                 //
+//      There are other examples in the file examples.html in the help folder      //
+//      Any one of those examples will work if cut and paste into a control file.  //
+//                                                                                 //
+/////////////////////////////////////////////////////////////////////////////////////
+
+// It is useful to know that anything on a line after two forward slashes is ignored.
+
+/*
+   Another useful thing to know is that anything after a forward slash and star
+   is ignored until INDELible sees a star followed by a forward slash later on.
+*/     
+
+[TYPE] NUCLEOTIDE 1	//  EVERY control file must begin with a [TYPE] command.
+			//  The word can be NUCLEOTIDE, AMINOACID or CODON depending 
+			//  on what kind of simulation you want to do but must be in 
+			//  upper case. The number can be 1 or 2 and chooses the 
+			//  algorithm that INDELible uses (see manuscript). Both give 
+			//  identical results but in some cases one is quicker.
+			//  Other blocks and commands following this statement
+			//  can come in any order you like.
+
+[MODEL]    modelname  	//  Evolutionary models are defined in [MODEL] blocks.
+[submodel] JC         	//  Here the substitution model is simply set as JC69.
+                      	//  No indel model has been given so no indels will occur. 
+  
+[TREE] TREE-C
+  (((((((1,(2,3,4),5,6),7),(8,9)),10),(11,(12,13))),((((14,15,16,17,18,19,20,21),(22,23,24)),(((25,26),(27,28)),29,30)),31)),32);
+
+   [branchlengths] EQUAL // All branch lengths will be equal
+  [treedepth] 1.5       // Root-to-longest-tip distance of 1.5
+
+
+
+
+
+[PARTITIONS] partitionname             //  [PARTITIONS] blocks say which models go with
+  [TREE-C modelname 20]              //  which trees and define the length of the
+                                       //  sequence generated at the root.
+
+[EVOLVE] partitionname 1 test-C-20    //  This will generate 1 replicate datasets 
+                                       //  from the [PARTITIONS] block named above.
+
+// The true alignment will be output in a file named outputname_TRUE.phy
+// The unaligned sequences will be output in a file named outputname.fas
+
+
