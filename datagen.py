@@ -1,6 +1,7 @@
 import os
 import sys
 import itertools
+import numpy
 
 import dendropy
 from dendropy.calculate.treecompare \
@@ -115,11 +116,11 @@ def writeSeqIDsToFile(seq_dict,filename):
             outfile.write("(" + str(key) + "," + seq_dict[key].tag + ")\n")
     return
 
-def genReadMe(num_seqs, readFrom, filename):
+def genReadMe(num_seqs, seq_length, readFrom, filename):
     with open(filename,'w') as outfile:
-        outfile.write("This folder uses the first " + str(num_seqs) + " sequences from\n" + readFrom)
+        outfile.write("This folder uses " + str(num_seqs) + " sequences  of length " + str(seq_length) + " from\n" + readFrom)
         outfile.write("\n\nseq-ids.txt: contains names and indices of sequences")
-        outfile.write("\ndist.txt: n x n hamming distance matrix")
+        outfile.write("\ndist.txt: n x n jcdist distance matrix")
         outfile.write("\nquarts.txt: printed list of quartets generated using 4PM on distance matrix in dist.txt")
     
     return
@@ -149,8 +150,13 @@ def distMatrix(sequences, n):
         for j in range(i,n):
             # maybe we consider doing another distance metric bc this seems meh
             hamming = hammingDist(sequences[i].seq,sequences[j].seq)
-            distances[i][j] = hamming
-            distances[j][i] = hamming
+            mid = 1 - ((4/3)*hamming)
+            if (mid <= 0):
+                jcdist = float("inf")
+            else: 
+                jcdist = (-3/4)*numpy.log(mid)
+            distances[i][j] = jcdist
+            distances[j][i] = jcdist
         
     return distances
 
@@ -181,26 +187,29 @@ def fourPointMethod(matrix):
 ===============================================================================
 '''
 
-num_sequences = 10
-readFrom = "datasets/1000L1/1000L1/R0/rose.aln.true.fasta"
-outPath = "quartet-files/" + str(num_sequences) + "-from-1000L1-R0/"
+'''
+seq_length = 10
+num_sequences = 32
+sim_letter = "C"
 
-genReadMe(num_sequences,readFrom,outPath + "README.txt")
+while seq_length <= 640:
+    readFrom = "datasets/sim-" + sim_letter + "/sim-" + sim_letter + "-" + str(seq_length) + "/test-" + sim_letter + "-" + str(seq_length) + ".fas"
+    outPath = "quartet-files/from-sim-" + sim_letter + "/sim-" + sim_letter + "-" + str(seq_length) + "/"
 
-seq_dict = readFromFasta(num_sequences,readFrom)
-writeSeqIDsToFile(seq_dict,outPath + "seq-ids.txt")
+    genReadMe(num_sequences,seq_length,readFrom,outPath + "README.txt")
 
-distance_matrix = distMatrix(seq_dict, num_sequences)
-writeDistToFile(distance_matrix, outPath + "dist.txt")
+    seq_dict = readFromFasta(num_sequences,readFrom)
+    writeSeqIDsToFile(seq_dict,outPath + "seq-ids.txt")
 
-quarts = fourPointMethod(distance_matrix)
-writeQuartsToFile(quarts,outPath + "quarts.txt")
+    distance_matrix = distMatrix(seq_dict, num_sequences)
+    writeDistToFile(distance_matrix, outPath + "dist.txt")
 
+    quarts = fourPointMethod(distance_matrix)
+    writeQuartsToFile(quarts,outPath + "quarts.txt")
 
-    
+    seq_length *= 2
 
-
-print("yeet")
+'''
 
 
 
