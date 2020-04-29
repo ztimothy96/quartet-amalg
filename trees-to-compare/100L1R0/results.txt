@@ -1,0 +1,8 @@
+command run was
+ python3 compare_trees.py 100L1R0/rose.tt 100L1R0/nj.tt 100L1R0
+nl: 100
+ei1: 97
+ei2: 97
+fp: 12
+fn: 12
+rf: 0.12371134020618557
