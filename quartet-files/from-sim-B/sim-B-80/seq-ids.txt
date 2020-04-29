@@ -1,0 +1,8 @@
+(0,raccoon)
+(1,bear)
+(2,sea_lion)
+(3,seal)
+(4,monkey)
+(5,cat)
+(6,weasel)
+(7,dog)
