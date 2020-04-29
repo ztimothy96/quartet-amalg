@@ -39,20 +39,7 @@ class WATC:
         while m >= 4:
             
             #brute force the base case
-            if m == 4:
-                print("Candidates:")
-                print(self.candidates)
-                print("Red:")
-                print(self.red)
-                print("Green:")
-                for j in range(self.n):
-                    for i in range(j):
-                        print("pair (" + str(i) + ", " + str(j) + "):")
-                        if self.green[i][j]:
-                            print(self.green[i][j].lst)
-                        else:
-                            print("None")
-                        
+            if m == 4:                        
                 reps = list(self.edis.keys())
                 all_edges = [(i, j) for j in range(4) for i in range(j) if self.are_siblings(reps[i], reps[j])]
                 
@@ -73,27 +60,13 @@ class WATC:
                 T.seed_node.add_child(t2.seed_node)
                 return T
             
-            else:
-                print("Candidates:")
-                print(self.candidates)
-                print("Red:")
-                print(self.red)
-                print("Green:")
-                for j in range(self.n):
-                    for i in range(j):
-                        print("pair (" + str(i) + ", " + str(j) + "):")
-                        if self.green[i][j]:
-                            print(self.green[i][j].lst)
-                        else:
-                            print("None")
-                            
+            else:                            
                 sibs = self.find_siblings()
                 if sibs:
                     i, j = sibs
                     self.update_structures(i, j)
                     m = len(self.edis)
                     print("There are " + str(m) + " edi-trees left.")
-                    print("_______________________________________")
                 else:
                     print("Fail: no more candidates")
                     return "Fail"
@@ -255,10 +228,7 @@ class WATC:
         return
 
     def update_colors(self, i, j):
-        print("i, j: " + str(i) + ", " + str(j))
-        
         for k in list(self.edis.keys()):
-            print ("k: " + str(k))
             if k != i and k != j:
                 # update red
                 redBefore = self.red[i][k]
@@ -306,7 +276,7 @@ class WATC:
     # returns distance and taxon of minimal closest leaf
     def get_rep(self, root):
         if root.is_leaf():
-            return 0, int(root.taxon)
+            return 0, int(root.label)
         child_reps = sorted([self.get_rep(child) for child in root.child_node_iter()])
         dist, name = child_reps[0]
         return dist+1, name
@@ -322,14 +292,16 @@ class WATC:
     def get_rep_quartets(self, T):
         reps = {}
         rep_quartets = []
-        # determine the representative element for each node
+        # gets representative for each node
         for node in T.preorder_node_iter():
             reps[node] = self.get_rep(node)
         
         # constructs short quartet for each edge
-        for edge in T.preorder_internal_edge_iter():
+        for edge in T.preorder_internal_edge_iter(exclude_seed_edge=True):
             head = edge.head_node
             tail = edge.tail_node
+            print("head: " + str(edge.head_node))
+            print("tail: " + str(edge.tail_node))
             # get children(?) of head
             i, j = [reps[child] for child in head.child_node_iter()]
             # if tail has no parent, the other part of the quartet is 
