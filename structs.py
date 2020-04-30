@@ -25,12 +25,14 @@ class Green:
 
     def __str__(self):
         return str(self.ptr) + ", " + str(self.lst)
+    
 '''
 ==========================================================================================
                                         Tailed DLL
 (The DoublyLinkedList class was modified from code by Nikhil Kumar Singh (nickzuck_007))
 ==========================================================================================
 '''
+
 class TailedDoublyLinkedList: 
     def __init__(self): 
         self.head = None
@@ -107,20 +109,33 @@ class TailedDoublyLinkedList:
 ==========================================================================================
 '''
 
-# a data structure for finding least common ancestor in O(log n) time
-# assumes that the input tree has distinct labels for each node...
+# a data structure for finding least common ancestor between leaves in O(log n) time
+# assumes that the phylogenetic tree has labeled leaves for quick lookup
+# leaves retain their labels, internal nodes labeled arbitrarily
+
 class LCA:
-    def __init__(self, root):
+    def __init__(self, root, n):
+        self.n = n # number of leaf nodes
+        self.int2node = {} # maps labels to nodes
+        self.node2int = {}
         self.height = {} # distance of node from root
         self.first = {} # first index in DFS walk seeing a given node
         self.traversal = [] # the DFS walk through the tree
-        self.int2node = [] # maps labels to nodes
+        
         self.dfs(root)
-        self.n = len(self.traversal) 
+        self.length = len(self.traversal) 
         self.construct_segment_tree()
 
     def dfs(self, node, height=0):
-        self.int2node[node.label] = node
+        internal = 0
+        if node.label:
+            self.int2node[int(node.label)] = node
+            self.node2int[node] = int(node.label)
+        else:
+            self.int2node[self.n + internal] = node
+            self.node2int[node] = self.n + internal
+            internal += 1
+            
         self.height[node] = height
         self.first[node] = len(self.traversal)
         self.traversal.append(node)
@@ -131,20 +146,19 @@ class LCA:
 
     # constructs segment tree on heights of the traversal
     def construct_segment_tree(self):
-        self.segtree = [(1e9, 0) for _ in range(2*self.n)]
+        self.segtree = [(1e9, 0) for _ in range(2*self.length)]
         # leaves
-        for i in range(self.n):
+        for i in range(self.length):
             node = self.traversal[i]
-            self.segtree[self.n + i] = (self.height[node], node.label)
+            self.segtree[self.length + i] = (self.height[node], self.node2int[node])
             
         # remaining nodes  
-        for i in range(self.n - 1, 0, -1):  
-            self.segtree[i] = min(self.segtree[2*i],  
-                             self.segtree[2*i + 1])  
+        for i in range(self.length - 1, 0, -1):  
+            self.segtree[i] = min(self.segtree[2*i], self.segtree[2*i + 1])  
                               
     def range_query(self, left, right): 
-        left += self.n  
-        right += self.n 
+        left += self.length  
+        right += self.length
         mi = (1e9, 0) # initialize minimum to a very high value
         
         while (left < right): 
@@ -155,7 +169,7 @@ class LCA:
                     right -= 1
                     mi = min(mi, self.segtree[right]) 
 
-            # move to the next higher level
+            # move to the next level
             left = left // 2
             right = right // 2
         
