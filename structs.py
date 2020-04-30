@@ -109,16 +109,12 @@ class TailedDoublyLinkedList:
 ==========================================================================================
 '''
 
-# a data structure for finding least common ancestor between leaves in O(log n) time
-# assumes that the phylogenetic tree has labeled leaves for quick lookup
-# leaves retain their labels, internal nodes labeled arbitrarily
+# a data structure for finding least common ancestor in O(log n) time
+# assumes that all nodes of the input tree have unique labels
 
 class LCA:
-    def __init__(self, root, n):
-        self.n = n # number of leaf nodes in the input tree
-        self.internal = 0 # number of internal nodes
+    def __init__(self, root):
         self.int2node = {} # maps labels to nodes
-        self.node2int = {}
         self.height = {} # distance of node from root
         self.first = {} # first index in DFS walk seeing a given node
         self.traversal = [] # the DFS walk through the tree
@@ -128,14 +124,7 @@ class LCA:
         self.construct_segment_tree()
 
     def dfs(self, node, height=0):
-        if node.label:
-            self.int2node[int(node.label)] = node
-            self.node2int[node] = int(node.label)
-        else:
-            self.int2node[self.n + self.internal] = node
-            self.node2int[node] = self.n + self.internal
-            self.internal += 1
-            
+        self.int2node[int(node.label)] = node
         self.height[node] = height
         self.first[node] = len(self.traversal)
         self.traversal.append(node)
@@ -150,7 +139,7 @@ class LCA:
         # leaves
         for i in range(self.length):
             node = self.traversal[i]
-            self.segtree[self.length + i] = (self.height[node], self.node2int[node])
+            self.segtree[self.length + i] = (self.height[node], int(node.label))
             
         # remaining nodes  
         for i in range(self.length - 1, 0, -1):  
@@ -177,8 +166,8 @@ class LCA:
 
     # find lca of nodes i,j
     def query(self, i, j):
-        left = self.first[self.int2node[i]]
-        right = self.first[self.int2node[j]]
+        left = self.first[self.int2node[int(i)]]
+        right = self.first[self.int2node[int(j)]]
         if left > right:
             left, right = right, left
         return self.range_query(left, right)
