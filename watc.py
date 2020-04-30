@@ -205,7 +205,6 @@ class WATC:
             raise ValueError('cannot merge with self')
         i, j = sorted([i, j])
         parent = dendropy.Tree()
-        parent.label = i
         parent.seed_node.add_child(self.edis[i].seed_node)
         parent.seed_node.add_child(self.edis[j].seed_node)
         self.edis[i] = parent
@@ -333,9 +332,9 @@ class WATC:
 
     # returns whether the input quartets are induced by tree T
     def are_quartets_in_tree(self, T):
-        lca = structs.LCA(T.seed_node)
+        lca = structs.LCA(T.seed_node, self.n)
         for q in self.quartets:
-            i, j, k, l = q
+            ((i, j), (k, l)) = q
             lj, lk, ll = lca.query(i, j), lca.query(i, k), lca.query(i, l)
             if lj == lk:
                 top = ((i, l), (j, k))
