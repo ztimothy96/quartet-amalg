@@ -17,6 +17,7 @@ class WATC:
         self.make_edis()
         self.tree = [i for i in range(self.n)]
         self.make_candidates() #doubly linked list
+        self.m = 0 #number of internal nodes
         return
 
 
@@ -55,6 +56,8 @@ class WATC:
                 t1 = self.merge_edi_trees(x, y)
                 t2 = self.merge_edi_trees(z, w)
                 T = dendropy.Tree()
+                T.seed_node.label = str(self.n + self.m)
+                self.m += 1
                 T.seed_node.add_child(t1.seed_node)
                 T.seed_node.add_child(t2.seed_node)
                 return T
@@ -205,6 +208,8 @@ class WATC:
             raise ValueError('cannot merge with self')
         i, j = sorted([i, j])
         parent = dendropy.Tree()
+        parent.seed_node.label = str(self.n + self.m)
+        self.m += 1
         parent.seed_node.add_child(self.edis[i].seed_node)
         parent.seed_node.add_child(self.edis[j].seed_node)
         self.edis[i] = parent
@@ -332,16 +337,45 @@ class WATC:
 
     # returns whether the input quartets are induced by tree T
     def are_quartets_in_tree(self, T):
-        lca = structs.LCA(T.seed_node, self.n)
+        lca = structs.LCA(T.seed_node)
         for q in self.quartets:
-            ((i, j), (k, l)) = q
-            lj, lk, ll = lca.query(i, j), lca.query(i, k), lca.query(i, l)
-            if lj == lk:
-                top = ((i, l), (j, k))
-            elif lj == ll:
-                top = ((i, k), (j, l))
-            elif lk == ll:
-                top = ((i, j), (k, l))
+            ((a, b), (c, d)) = q
+            lab, lac, lad = lca.query(a, b), lca.query(a, c), lca.query(a, d)
+            lbc, lbd = lca.query(b, c), lca.query(b, d)
+            lcd = lca.query(c, d)
+
+            # brute force through possible rooted topologies
+            if lab == lac:
+                top = ((a, d), (b, c))
+            elif lab == lad:
+                top = ((a, c), (b, d))
+            elif lac == lad:
+                top = ((a, b), (c, d))
+                
+            #otherwise a is at bottom of induced quartet tree
+            elif lbc == lbd:
+                # b is above c, d
+                if lcd == lac:
+                    # c is above a, d
+                    top = ((a, d), (b, c))
+                else:
+                    top = ((a, c), (b, d))
+                    
+            # similarly
+            elif lbc == lcd:
+                # c is on top
+                if lbd == lab:
+                    top = ((a, d), (b, c))
+                else:
+                    top = ((a, b), (c, d))
+
+            elif lbd == lcd:
+                # d is on top
+                if lbc == lab:
+                    top = ((a, c), (b, d))
+                else:
+                    top = ((a, b), (c, d))
+                    
             else:
                 raise ValueError('invalid tree topology')
             if top not in self.same_splits(q):
