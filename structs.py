@@ -115,7 +115,8 @@ class TailedDoublyLinkedList:
 
 class LCA:
     def __init__(self, root, n):
-        self.n = n # number of leaf nodes
+        self.n = n # number of leaf nodes in the input tree
+        self.internal = 0 # number of internal nodes
         self.int2node = {} # maps labels to nodes
         self.node2int = {}
         self.height = {} # distance of node from root
@@ -127,14 +128,13 @@ class LCA:
         self.construct_segment_tree()
 
     def dfs(self, node, height=0):
-        internal = 0
         if node.label:
             self.int2node[int(node.label)] = node
             self.node2int[node] = int(node.label)
         else:
-            self.int2node[self.n + internal] = node
-            self.node2int[node] = self.n + internal
-            internal += 1
+            self.int2node[self.n + self.internal] = node
+            self.node2int[node] = self.n + self.internal
+            self.internal += 1
             
         self.height[node] = height
         self.first[node] = len(self.traversal)
@@ -177,8 +177,8 @@ class LCA:
 
     # find lca of nodes i,j
     def query(self, i, j):
-        left = self.first[i]
-        right = self.first[j]
+        left = self.first[self.int2node[i]]
+        right = self.first[self.int2node[j]]
         if left > right:
             left, right = right, left
         return self.range_query(left, right)
