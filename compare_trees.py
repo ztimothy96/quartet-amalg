@@ -45,26 +45,74 @@ def compare_trees(tr1, tr2):
 
     return(nl, ei1, ei2, fp, fn, rf)
 
+def writeResults(tt2, tt3, tt, tr2, tr3, foldername):
+    filename = foldername + "/results.txt"
+    with open(filename,'w') as outfile:
+        outfile.write("command run was\n python3 compare_trees.py " + tt + " " + tr2 + " " + tr3 + " " + foldername)
+
+        [nl, ei1, ei2, fp, fn, rf] = tt2 
+        outfile.write("\nNJ results:")
+        outfile.write("\nnl: " + str(nl))
+        outfile.write("\nei1: " + str(ei1))
+        outfile.write("\nei2: " + str(ei2))
+        outfile.write("\nfp: " + str(fp))
+        outfile.write("\nfn: " + str(fn))
+        outfile.write("\nrf: " + str(rf))
+
+        [nl, ei1, ei2, fp, fn, rf] = tt3
+        outfile.write("\n\nQMC results:")
+        outfile.write("\nnl: " + str(nl))
+        outfile.write("\nei1: " + str(ei1))
+        outfile.write("\nei2: " + str(ei2))
+        outfile.write("\nfp: " + str(fp))
+        outfile.write("\nfn: " + str(fn))
+        outfile.write("\nrf: " + str(rf))
+    
+    return
+
+
 
 if __name__ == "__main__":
-    argc = len(sys.argv)
-    assert (argc == 3), "Usage: assess_dataset.py tr1 tr2"
+    # added new arg for folder-name to put results.txt
+    #argc = len(sys.argv)
+    #assert (argc == 5), "Usage: assess_dataset.py truetree tr2 tr3 folder"
+    conditions = ['L1','L2','M1','M2','M3','S1','S2']
+    for cond in conditions:
 
-    tax = dendropy.TaxonNamespace()
-    tr1 = dendropy.Tree.get(path=sys.argv[1],
-                            schema='newick',
-                            rooting='force-unrooted',
-                            taxon_namespace=tax)
+        sys.stdout.write('\n\nModel ' + cond)
+        for i in range(10):    
+            repNo = "R" + str(i)
+            ttpath = "/Users/tanvibajpai/Desktop/AGB/trees-to-compare/100" + cond  + "/" + repNo + "/rose.tt"
+            tr2path = "/Users/tanvibajpai/Desktop/AGB/trees-to-compare/100" + cond  + "/" + repNo + "/nj.tt"
+            tr3path = "/Users/tanvibajpai/Desktop/AGB/trees-to-compare/100" + cond  + "/" + repNo + "/qmc.tt"
+            folder =  "/Users/tanvibajpai/Desktop/AGB/trees-to-compare/100" + cond  + "/" + repNo + "/"
 
-    tr2 = dendropy.Tree.get(path=sys.argv[2],
-                            schema='newick',
-                            rooting='force-unrooted',
-                            taxon_namespace=tax)
+            tax = dendropy.TaxonNamespace()
+            tt = dendropy.Tree.get(path=ttpath,
+                                    schema='newick',
+                                    rooting='force-unrooted',
+                                    taxon_namespace=tax)
 
-    tr1.collapse_basal_bifurcation(set_as_unrooted_tree=True)
-    tr2.collapse_basal_bifurcation(set_as_unrooted_tree=True)
+            tr2 = dendropy.Tree.get(path=tr2path,
+                                    schema='newick',
+                                    rooting='force-unrooted',
+                                    taxon_namespace=tax)
+            tr3 = dendropy.Tree.get(path=tr3path,
+                                    schema='newick',
+                                    rooting='force-unrooted',
+                                    taxon_namespace=tax)
 
-    [nl, ei1, ei2, fp, fn, rf] = compare_trees(tr1, tr2)
-    sys.stdout.write('%d %d %d %d %d %f' % (nl, ei1, ei2, fp, fn, rf))
+            tt.collapse_basal_bifurcation(set_as_unrooted_tree=True)
+            tr2.collapse_basal_bifurcation(set_as_unrooted_tree=True)
+            tr3.collapse_basal_bifurcation(set_as_unrooted_tree=True)
+
+            tt2 = compare_trees(tt, tr2)
+            tt3 = compare_trees(tt,tr3)
+            writeResults(tt2, tt3, ttpath, tr2path, tr3path, folder)
+            [nl, ei1, ei2, fp, fn, rf] = tt2 
+            sys.stdout.write('\nNJ: %d %d %d %d %d %f' % (nl, ei1, ei2, fp, fn, rf))
+            [nl, ei1, ei2, fp, fn, rf] = tt3 
+            sys.stdout.write('\tQMC: %d %d %d %d %d %f' % (nl, ei1, ei2, fp, fn, rf))
+        
     sys.stdout.flush()
     os._exit(0)  # CRITICAL ON BLUE WATERS LOGIN NODE

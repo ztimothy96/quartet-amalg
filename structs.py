@@ -171,4 +171,57 @@ class LCA:
         if left > right:
             left, right = right, left
         return self.range_query(left, right)
+
+    # find the induced quartet topology of q in the input tree
+    def get_quartet(self, q):
+        ((a, b), (c, d)) = q
+        lab, lac, lad = self.query(a, b), self.query(a, c), self.query(a, d)
+        lbc, lbd = self.query(b, c), self.query(b, d)
+        lcd = self.query(c, d)
+
+        # brute force through possible rooted topologies
+        if lab == lac and lac == lad:
+            # a is child of root
+            if lbc == lbd:
+                top = ((a, b), (c, d))
+            elif lbc == lcd:
+                top = ((a, c), (b, d))
+            else:
+                top = ((a, d), (b, c))
+
+        # checks the balanced binary trees
+        elif lab == lac:
+            top = ((a, d), (b, c))
+        elif lab == lad:
+            top = ((a, c), (b, d))
+        elif lac == lad:
+            top = ((a, b), (c, d))
+            
+        #otherwise a is at the bottom an unbalanced tree
+        elif lbc == lbd:
+            # b is above c, d
+            if lcd == lac:
+                # c is above a, d
+                top = ((a, d), (b, c))
+            else:
+                top = ((a, c), (b, d))
+                
+        # similarly
+        elif lbc == lcd:
+            # c is on top
+            if lbd == lab:
+                top = ((a, d), (b, c))
+            else:
+                top = ((a, b), (c, d))
+
+        elif lbd == lcd:
+            # d is on top
+            if lbc == lab:
+                top = ((a, c), (b, d))
+            else:
+                top = ((a, b), (c, d))
+        else:
+            raise ValueError('invalid tree topology')
+        return top
+        
         

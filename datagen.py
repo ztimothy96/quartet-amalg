@@ -67,10 +67,12 @@ def regenSeqIDDict(filePath):
     seq_dict = {}
     with open(filePath) as f:
         for line in f:
-            line.replace("(","")
-            line.replace(")","")
+            line = line.replace("\n","")
+            line = line.replace("(","")
+            line = line.replace(")","")
             temp = line.split(",")
             n = int(temp[0])
+            print(str(n))
             seq_dict[n] = temp[1]
     return seq_dict
 
@@ -109,6 +111,21 @@ def writeQuartsToFile(quarts,filename):
         for ((a,b),(c,d)) in quarts:
             outfile.write("((" + str(a) + "," + str(b) + "),(" + str(c) + "," + str(d) + "))\n")
     return
+
+# for QMC 
+def writeQuartsToFileWithRealName(quarts,seq_dict, filename):
+    with open(filename, 'w') as outfile:
+        for ((a,b),(c,d)) in quarts:
+            na = seq_dict[a].tag
+            nb = seq_dict[b].tag
+            nc = seq_dict[c].tag
+            nd = seq_dict[d].tag
+            outfile.write(str(na)+ "," + str(nb) + "|" + str(nc) + "," + str(nd) + " ")
+
+def writeQuartsToFileQMC(quarts, filename):
+    with open(filename, 'w') as outfile:
+        for ((a,b),(c,d)) in quarts:
+            outfile.write(str(a)+ "," + str(b) + "|" + str(c) + "," + str(d) + " ")
 
 def writeSeqIDsToFile(seq_dict,filename):
     with open(filename,'w') as outfile:
@@ -170,15 +187,26 @@ def fourPointMethod(matrix):
         sum2 = matrix[a][c] + matrix[b][d]
         sum3 = matrix[a][d] + matrix[b][c]
 
-        if sum1 >= sum2 and sum1 >= sum3: 
+        if sum1 <= sum2 and sum1 <= sum3: 
             quarts.append(((a,b),(c,d)))
-        elif sum2 >= sum1 and sum2 >= sum3:
+        elif sum2 <= sum1 and sum2 <= sum3:
             quarts.append(((a,c),(b,d)))
-        elif sum3 >= sum1 and sum3 >= sum2:
+        elif sum3 <= sum1 and sum3 <= sum2:
             quarts.append(((a,d),(b,c)))
 
     return quarts
 
+'''
+===============================================================================
+                    tree fixin
+===============================================================================
+'''
+
+def renameNodes(tree, seq_dict):
+    for leaf in tree.leaf_nodes():
+        new_label = seq_dict[int(leaf.taxon.label)]
+        leaf.taxon.label = new_label
+    return tree
 
 
 '''
@@ -187,29 +215,78 @@ def fourPointMethod(matrix):
 ===============================================================================
 '''
 
-'''
-seq_length = 10
-num_sequences = 32
-sim_letter = "C"
+if __name__ == "__main__":
+    
+    thing_to_run = 1
+    conditions = ['L1','L2','M1','M2','M3','S1','S2']
+    
+    if thing_to_run == 1:
+        for cond in conditions:
+            for i in range(10):
+                replicateNo = "R" + str(i)
+                seq_path = "/Users/tanvibajpai/Desktop/AGB/quartet-files/100" + cond + "/" + replicateNo + "/seq-ids.txt"
+                seq_dict = regenSeqIDDict(seq_path)
+                tree_path = "/Users/tanvibajpai/Desktop/AGB/trees-to-compare/100" + cond + "/" + replicateNo + "/MXCNtree.dat"
+                tax = dendropy.TaxonNamespace()
+                tr1 = dendropy.Tree.get(path=tree_path,
+                                            schema='newick',
+                                            rooting='force-unrooted',
+                                            taxon_namespace=tax)
+                print(tr1)
+                print(tax)
+                '''for leaf in tr1.leaf_node_iter():
+                    print(leaf)'''
+                new_tree = renameNodes(tr1,seq_dict)
+                put_tree_path = "/Users/tanvibajpai/Desktop/AGB/trees-to-compare/100" + cond + "/" + replicateNo + "/qmc.tt"
+                new_tree.write(path = put_tree_path,schema = "newick")
 
-while seq_length <= 640:
-    readFrom = "datasets/sim-" + sim_letter + "/sim-" + sim_letter + "-" + str(seq_length) + "/test-" + sim_letter + "-" + str(seq_length) + ".fas"
-    outPath = "quartet-files/from-sim-" + sim_letter + "/sim-" + sim_letter + "-" + str(seq_length) + "/"
+    elif thing_to_run == 2:
+        seq_length = 0
+        num_sequences = 100
+        for cond in conditions:
+            for i in range(10):
+                replicateNo = "R" + str(i)
 
-    genReadMe(num_sequences,seq_length,readFrom,outPath + "README.txt")
+                readFrom = "/Users/tanvibajpai/Desktop/AGB/data/100" + cond + "/100" + cond + "/" + replicateNo + "/rose.aln.true.fasta"
+                outPath = "/Users/tanvibajpai/Desktop/AGB/quartet-files/100" + cond + "/" + replicateNo + "/"
 
-    seq_dict = readFromFasta(num_sequences,readFrom)
-    writeSeqIDsToFile(seq_dict,outPath + "seq-ids.txt")
+                genReadMe(num_sequences,seq_length,readFrom,outPath + "README.txt")
+                seq_dict = readFromFasta(num_sequences, readFrom)
+                writeSeqIDsToFile(seq_dict,outPath + "seq-ids.txt")
 
-    distance_matrix = distMatrix(seq_dict, num_sequences)
-    writeDistToFile(distance_matrix, outPath + "dist.txt")
+                distance_matrix = distMatrix(seq_dict, num_sequences)
+                writeDistToFile(distance_matrix, outPath + "dist.txt")
 
-    quarts = fourPointMethod(distance_matrix)
-    writeQuartsToFile(quarts,outPath + "quarts.txt")
+                quarts = fourPointMethod(distance_matrix)
+                writeQuartsToFile(quarts,outPath + "quarts.txt")
+                writeQuartsToFileQMC(quarts,outPath + "quartQMC1.txt")
+                #writeQuartsToFileWithRealName(quarts,seq_dict,outPath + "quartQMC.txt")
 
-    seq_length *= 2
 
-'''
+
+    '''
+    seq_length = 10
+    num_sequences = 32
+    sim_letter = "C"
+
+    while seq_length <= 640:
+        readFrom = "datasets/sim-" + sim_letter + "/sim-" + sim_letter + "-" + str(seq_length) + "/test-" + sim_letter + "-" + str(seq_length) + ".fas"
+        outPath = "quartet-files/from-sim-" + sim_letter + "/sim-" + sim_letter + "-" + str(seq_length) + "/"
+
+        genReadMe(num_sequences,seq_length,readFrom,outPath + "README.txt")
+
+        seq_dict = readFromFasta(num_sequences,readFrom)
+        writeSeqIDsToFile(seq_dict,outPath + "seq-ids.txt")
+
+        distance_matrix = distMatrix(seq_dict, num_sequences)
+        writeDistToFile(distance_matrix, outPath + "dist.txt")
+
+        quarts = fourPointMethod(distance_matrix)
+        writeQuartsToFile(quarts,outPath + "quarts.txt")
+
+        seq_length *= 2
+
+    '''
 
 
 

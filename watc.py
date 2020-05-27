@@ -24,6 +24,8 @@ class WATC:
     # wrapper function to run WATC algorithm
     def get_tree(self):
         T = self.find_some_tree()
+        if T == "Fail":
+            return T
         if self.verify_tree(T):
             return T
         return "Fail"
@@ -39,7 +41,9 @@ class WATC:
         while m >= 4:
             
             #brute force the base case
-            if m == 4:                        
+            if m == 4:
+                print("red: ")
+                print(self.red)
                 reps = list(self.edis.keys())
                 all_edges = [(i, j) for j in range(4) for i in range(j) if self.are_siblings(reps[i], reps[j])]
                 
@@ -69,6 +73,7 @@ class WATC:
                     self.update_structures(i, j)
                     m = len(self.edis)
                     print("There are " + str(m) + " edi-trees left.")
+                    print("________________________________________")
                 else:
                     print("Fail: no more candidates")
                     return "Fail"
@@ -150,10 +155,8 @@ class WATC:
         curr = self.candidates.head
         while(curr is not None):
             (i, j) = curr.data
-            if self.tree[i] != i or self.tree[j] != j:
+            if self.tree[i] != i or self.tree[j] != j or self.red[i][j] != 0:
                 curr = self.candidates.delete(curr)
-            elif self.red[i][j] != 0:
-                curr = curr.next
             elif self.has_green_edge(i, j):
                 return (i, j)
             else:
@@ -163,28 +166,44 @@ class WATC:
     # returns whether there is a non-ghost green edge between i, j
     # also deletes ghost edges in checking process
     def has_green_edge(self, i, j):
-        lst = self.green[i][j].lst
-        node = lst.head
-        while node != None:
-            q = node.data
+        found = False
+        lst1 = self.green[i][j].lst
+        lst2 = self.green[j][i].lst
+        node1 = lst1.head
+        node2 = lst2.head
+        while node1 != None:
+            q = node1.data
             if self.is_ghost_edge(i, j, q):
-                node = lst.delete(node)
+                node1 = lst1.delete(node1)
+                node2 = lst2.delete(node2)
             else:
-                return True
-            
+                found = True
+                node1 = node1.next
+                node2 = node2.next
+                
         # empty list; disconnect ptrs in green
-        self.green[i][j].ptr = None
-        self.green[j][i].ptr = None
-        return False
+        if not found:
+            self.green[i][j].ptr = None
+            self.green[j][i].ptr = None
+        return found
 
     # returns whether (a, b) is a ghost edge for quartet q
-    def is_ghost_edge(self, a, b, q):
+    def is_ghost_edge(self, i, j, q):
         ((x, y), (z, w)) = q
         nodes = [x, y, z, w]
+        a = [t for t in nodes if self.tree[t] == i][0]
+        b = [t for t in nodes if self.tree[t] == j][0]
         [c, d] = [t for t in nodes if t != a and t != b]
         return self.tree[c] == self.tree[d]
 
     def update_structures(self, i, j):
+        print("red: ")
+        print(self.red)
+        print("green" + str((i, j)) + ": ")
+        print(self.green[i][j].lst)
+        print("length: " + str(self.green[i][j].lst.length))
+        print("merging: " + str((i, j)))
+
         # first delete the red edges associated to edge (i, j)
         curr = self.green[i][j].lst.head
         while (curr is not None):
@@ -195,7 +214,10 @@ class WATC:
                 self.red[x][y] -= 1
                 self.red[y][x] -= 1
             curr = curr.next
-                
+
+        print("red after deletion: ")
+        print(self.red)
+
         i, j = sorted([i, j])
         self.merge_edi_trees(i, j)
         self.update_tree(i, j)
@@ -339,45 +361,7 @@ class WATC:
     def are_quartets_in_tree(self, T):
         lca = structs.LCA(T.seed_node)
         for q in self.quartets:
-            ((a, b), (c, d)) = q
-            lab, lac, lad = lca.query(a, b), lca.query(a, c), lca.query(a, d)
-            lbc, lbd = lca.query(b, c), lca.query(b, d)
-            lcd = lca.query(c, d)
-
-            # brute force through possible rooted topologies
-            if lab == lac:
-                top = ((a, d), (b, c))
-            elif lab == lad:
-                top = ((a, c), (b, d))
-            elif lac == lad:
-                top = ((a, b), (c, d))
-                
-            #otherwise a is at bottom of induced quartet tree
-            elif lbc == lbd:
-                # b is above c, d
-                if lcd == lac:
-                    # c is above a, d
-                    top = ((a, d), (b, c))
-                else:
-                    top = ((a, c), (b, d))
-                    
-            # similarly
-            elif lbc == lcd:
-                # c is on top
-                if lbd == lab:
-                    top = ((a, d), (b, c))
-                else:
-                    top = ((a, b), (c, d))
-
-            elif lbd == lcd:
-                # d is on top
-                if lbc == lab:
-                    top = ((a, c), (b, d))
-                else:
-                    top = ((a, b), (c, d))
-                    
-            else:
-                raise ValueError('invalid tree topology')
+            top = lca.get_quartet(q)
             if top not in self.same_splits(q):
                 return False
         return True
