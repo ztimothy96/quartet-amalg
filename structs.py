@@ -79,6 +79,8 @@ class TailedDoublyLinkedList:
             self.tail.next = other.head
         if not self.head:
             self.head = other.head
+        if other.head:
+            other.head.prev = self.tail
         self.tail = other.tail
         self.length += other.length
   

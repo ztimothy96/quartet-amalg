@@ -64,3 +64,7 @@ quarts = get_quartets_from_tree(TB)
 size = len(TB.leaf_nodes())
 tf = watc.WATC(size, quarts)
 T = tf.get_tree()
+
+
+# test_cat(10)
+

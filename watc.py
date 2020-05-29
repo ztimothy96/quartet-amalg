@@ -42,10 +42,9 @@ class WATC:
             
             #brute force the base case
             if m == 4:
-                print("red: ")
-                print(self.red)
                 reps = list(self.edis.keys())
-                all_edges = [(i, j) for j in range(4) for i in range(j) if self.are_siblings(reps[i], reps[j])]
+                all_edges = [(i, j) for j in range(4) for i in range(j)
+                             if self.are_siblings(reps[i], reps[j])]
                 
                 if all_edges == [(0, 1), (2, 3)]:
                     x, y, z, w = reps[0], reps[1], reps[2], reps[3]
@@ -66,11 +65,12 @@ class WATC:
                 T.seed_node.add_child(t2.seed_node)
                 return T
             
-            else:                            
+            else:                
                 sibs = self.find_siblings()
                 if sibs:
                     i, j = sibs
                     self.update_structures(i, j)
+                    
                     m = len(self.edis)
                     print("There are " + str(m) + " edi-trees left.")
                     print("________________________________________")
@@ -197,13 +197,6 @@ class WATC:
         return self.tree[c] == self.tree[d]
 
     def update_structures(self, i, j):
-        print("red: ")
-        print(self.red)
-        print("green" + str((i, j)) + ": ")
-        print(self.green[i][j].lst)
-        print("length: " + str(self.green[i][j].lst.length))
-        print("merging: " + str((i, j)))
-
         # first delete the red edges associated to edge (i, j)
         curr = self.green[i][j].lst.head
         while (curr is not None):
@@ -214,9 +207,6 @@ class WATC:
                 self.red[x][y] -= 1
                 self.red[y][x] -= 1
             curr = curr.next
-
-        print("red after deletion: ")
-        print(self.red)
 
         i, j = sorted([i, j])
         self.merge_edi_trees(i, j)
